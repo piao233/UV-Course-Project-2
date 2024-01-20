@@ -105,11 +105,23 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 
     forw_pts.clear();
 
-    if (cur_pts.size() > 0)
+    if (cur_pts.size() > 0)  // 上一帧有特征点，就可以进行光流追踪了
     {
         TicToc t_o;
         vector<uchar> status;
         vector<float> err;
+
+        // void cv::calcOpticalFlowPyrLK	(	
+        //         InputArray 	prevImg, 前一个图像
+        //         InputArray 	nextImg, 当期图像
+        //         InputArray 	prevPts, 前一张图像2D点的矢量
+        //         InputOutputArray 	nextPts, 当前图像2D点的矢量
+        //         OutputArray 	status,  输出状态向量（无符号字符）;如果找到相应特征的流，则向量的每个元素设置为1，否则设置为0。
+        //         OutputArray 	err,    输出错误的矢量; 向量的每个元素都设置为相应特征的错误
+        //         Size 	winSize = Size(21, 21),每个金字塔等级的搜索窗口的winSize大小
+        //         int 	maxLevel = 3,   基于0的最大金字塔等级数
+        //    )
+
         cv::calcOpticalFlowPyrLK(cur_img, forw_img, cur_pts, forw_pts, status, err, cv::Size(21, 21), 3);
 
         for (int i = 0; i < int(forw_pts.size()); i++)
@@ -146,7 +158,40 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
                 cout << "mask type wrong " << endl;
             if (mask.size() != forw_img.size())
                 cout << "wrong size " << endl;
-            cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);
+
+
+            // void cv::goodFeaturesToTrack(
+            //         cv::InputArray image, // 输入图像（CV_8UC1 CV_32FC1）
+            //         cv::OutputArray corners, // 输出角点vector
+            //         int maxCorners, // 最大角点数目
+            //         double qualityLevel, // 质量水平系数（小于1.0的正数，一般在0.01-0.1之间）
+            //         double minDistance, // 最小距离，小于此距离的点忽略
+            //         cv::InputArray mask = noArray(), // mask=0的点忽略
+            //         int blockSize = 3, // 使用的邻域数
+            //         bool useHarrisDetector = false, // false ='Shi Tomasi metric'
+            //         double k = 0.04 // Harris角点检测时使用
+            //     );            
+
+            //---------原角点检测算法：Shi-Tomasi Corner Detector------------------
+            // cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);
+            //-------------------------------------------------------------------
+
+            //--------上FAST-----------------------------------------------------
+            cv::Ptr<cv::FastFeatureDetector> FAST_detector = cv::FastFeatureDetector::create();
+            std::vector<cv::KeyPoint> keypoints;
+            FAST_detector->detect(forw_img, keypoints);
+
+            std::sort(keypoints.begin(), keypoints.end(),[](const cv::KeyPoint& a, const cv::KeyPoint& b) { return a.response > b.response; });
+            // Select the best [MAX_CNT - forw_pts.size()] points
+            std::vector<cv::KeyPoint> bestKeypoints(keypoints.begin(), keypoints.begin() + MAX_CNT - forw_pts.size());
+            
+            ROS_WARN("Vis Adding extra [%ld] FAST keypoints.", MAX_CNT - forw_pts.size());
+            std::vector<cv::Point_<float>> temp;
+            for (const cv::KeyPoint& keypoint : bestKeypoints){
+                temp.push_back(keypoint.pt);
+            }
+            n_pts = temp;
+            //-------------------------------------------------------------------
         }
         else
             n_pts.clear();

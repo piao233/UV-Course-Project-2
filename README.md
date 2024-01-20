@@ -1,5 +1,19 @@
 # 开发记录
 
+source devel/setup.bash
+
+roslaunch lvi_sam Husky.launch
+
+rosbag play ./bagfiles/husky.bag
+
+
+
+python src/LVI-SAM-Easyused/pcd2tum.py
+
+cd ~/lvi-sam/results
+
+evo_ape tum gt.txt lvisam.txt -r full -va --plot --plot_mode xy --save_plot ./lvisamplot
+
 ## 1228  init
 + 重构项目结构，创建自己的repo
 

@@ -1,3 +1,7 @@
 .vscode/*
 build/*
 devel/*
+bagfiles/*
+src/LVI-SAM-Easyused/results/gt.txt
+report/*
+IEEEtran.cls
